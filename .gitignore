@@ -1,0 +1,13 @@
+# Dependencies
+node_modules/
+
+# Lock files
+bun.lock
+package-lock.json
+
+# Scraped data (optional - remove if you want to track)
+*.json
+!package.json
+
+# OS files
+.DS_Store

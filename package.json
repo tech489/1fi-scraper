@@ -1,0 +1,9 @@
+{
+  "type": "module",
+  "scripts": {
+    "start": "node voltmoney-login.js"
+  },
+  "dependencies": {
+    "puppeteer": "^24.34.0"
+  }
+}
