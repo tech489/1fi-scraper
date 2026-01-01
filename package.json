@@ -1,7 +1,8 @@
 {
   "type": "module",
   "scripts": {
-    "start": "node voltmoney-login.js"
+    "start": "node voltmoney-login.js",
+    "@1fi-finance/database": "file:./packages/database"
   },
   "dependencies": {
     "puppeteer": "^24.34.0"
