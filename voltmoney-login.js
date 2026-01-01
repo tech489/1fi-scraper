@@ -59,10 +59,10 @@ async function main() {
             console.log('No banner appeared (or selector changed). Continuing...');
         }
 
-        // 7. Click navigation element
+        // 7. Click navigation element (usually "Leads" or similar)
         console.log('Clicking navigation element...');
         const navElement = await page.waitForSelector(
-            '::-p-xpath(/html/body/div[2]/div[3]/div/aside/nav/div[2])'
+            '.partner_dash-module__4U8UXq__nav > div:nth-child(2) > a:nth-child(1)'
         );
         await navElement.click();
 
@@ -96,7 +96,7 @@ async function main() {
         // 9. Click on the second navigation element
         console.log('Clicking second navigation element...');
         const secondNavElement = await page.waitForSelector(
-            '::-p-xpath(/html/body/div[2]/div[3]/div/aside/nav/div[4]/a)'
+            '.partner_dash-module__4U8UXq__nav > div:nth-child(4) > a:nth-child(1)'
         );
         await secondNavElement.click();
 
