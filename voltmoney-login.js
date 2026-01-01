@@ -3,9 +3,9 @@ import puppeteer from 'puppeteer';
 async function main() {
     console.log('Launching browser...');
 
-    // 1. Launch browser (non-headless for debugging)
+    // 1. Launch browser (headless for server/cron)
     const browser = await puppeteer.launch({
-        headless: false,
+        headless: process.env.HEADLESS !== 'false',
         defaultViewport: { width: 1280, height: 800 },
         args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
@@ -22,7 +22,7 @@ async function main() {
         // 3. Enter mobile number using XPath
         console.log('Entering mobile number...');
         const mobileInput = await page.waitForSelector('::-p-xpath(//*[@id="mobile"])');
-        await mobileInput.type('9953972289');
+        await mobileInput.type(process.env.VOLT_MOBILE || '9953972289');
 
         const loginUsingPassword = await page.waitForSelector('.button-module__x0Fa7W__buttonOutlineTransparentLarge');
         await loginUsingPassword.click();
@@ -33,7 +33,7 @@ async function main() {
         // 4. Enter password
         console.log('Entering password...');
         const passwordInput = await page.waitForSelector('#password', { visible: true, timeout: 10000 });
-        await passwordInput.type('Sagar2003@');
+        await passwordInput.type(process.env.VOLT_PASSWORD || 'Sagar2003@');
 
         // 5. Click login button
         console.log('Clicking login button...');
@@ -132,7 +132,7 @@ async function main() {
 
     // Keep browser open for observation
     // Uncomment the line below to close browser automatically
-    // await browser.close();
+    await browser.close();
 }
 
 main().catch(console.error);
