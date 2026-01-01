@@ -40,10 +40,24 @@ async function main() {
         const loginButton = await page.waitForSelector(
             '.button-module__x0Fa7W__buttonPrimaryLarge'
         );
-        await loginButton.click();
+        await Promise.all([
+            page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }).catch(() => { }),
+            loginButton.click()
+        ]);
 
-        const closeAd = await page.waitForSelector('#main_container_body > div > div.BannerModal-module__oBbfxG__overlay > div > div.BannerModal-module__oBbfxG__closeButton');
-        await closeAd.click();
+        // 6. Optional: Close Banner/Ad if it appears
+        console.log('Checking for banners...');
+        try {
+            const closeAdSelector = 'div[class*="BannerModal-module"] button, div[class*="BannerModal-module"] [class*="closeButton"]';
+            const closeAd = await page.waitForSelector(closeAdSelector, { visible: true, timeout: 5000 });
+            if (closeAd) {
+                console.log('Banner found, closing...');
+                await closeAd.click();
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+        } catch (e) {
+            console.log('No banner appeared (or selector changed). Continuing...');
+        }
 
         // 7. Click navigation element
         console.log('Clicking navigation element...');

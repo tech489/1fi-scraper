@@ -1,11 +1,12 @@
 #!/bin/bash
 
-# Navigate to the project directory
-cd /home/neoweave/Desktop/1fi/scraper
+# Navigate to the project directory on the server
+cd /root/1fi-scraper
 
-# Use the specific node version (Virtual Env)
-# Path found: /home/neoweave/.nvm/versions/node/v22.20.0/bin/node
-NODE_PATH="/home/neoweave/.nvm/versions/node/v22.20.0/bin/node"
+# Use node from path or specified location
+# Since we are on a different server, 'node' should be in the PATH
+# or we can use $(which node) to be safe if run manually once.
+NODE_PATH=$(which node)
 
 # Run the scraper
 # We use --env-file to load variables from .env automatically (Node 20+)
