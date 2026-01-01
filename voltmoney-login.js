@@ -21,7 +21,7 @@ async function main() {
 
         // 3. Enter mobile number using XPath
         console.log('Entering mobile number...');
-        const mobileInput = await page.waitForSelector('::-p-xpath(//*[@id="mobile"])');
+        const mobileInput = await page.waitForSelector('#mobile');
         await mobileInput.type(process.env.VOLT_MOBILE || '9953972289');
 
         const loginUsingPassword = await page.waitForSelector('.button-module__x0Fa7W__buttonOutlineTransparentLarge');
