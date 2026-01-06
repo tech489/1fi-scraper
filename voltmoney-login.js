@@ -138,6 +138,21 @@ async function main() {
         fs.writeFileSync('second_table_data.json', JSON.stringify(secondTableData, null, 2));
         console.log('Data saved to first_table_data.json and second_table_data.json');
 
+        // Run DB Sync
+        console.log('Starting DB synchronization...');
+        const { exec } = await import('child_process');
+        await new Promise((resolve, reject) => {
+            exec('bun run sync_db.js', (error, stdout, stderr) => {
+                if (error) {
+                    console.error(`Sync error: ${error.message}`);
+                    return resolve(); // Don't fail the whole scraper if sync fails
+                }
+                if (stderr) console.error(`Sync stderr: ${stderr}`);
+                console.log(`Sync stdout:\n${stdout}`);
+                resolve();
+            });
+        });
+
         console.log('Automation completed successfully!');
 
     } catch (error) {
