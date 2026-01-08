@@ -4,6 +4,7 @@
     "start": "node voltmoney-login.js"
   },
   "dependencies": {
+    "": ".",
     "@1fi-finance/database": "^0.0.4-rc.3",
     "dotenv": "^17.2.3",
     "drizzle-orm": "^0.45.1",

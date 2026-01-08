@@ -1,10 +1,8 @@
 
+import "dotenv/config";
 import { db, users, orders } from "@1fi-finance/database";
 import { sql, eq, or, like } from "drizzle-orm";
 import fs from "fs";
-import dotenv from "dotenv";
-
-dotenv.config();
 
 const normalizePhone = (phone) => {
     if (!phone) return null;

@@ -142,7 +142,7 @@ async function main() {
         console.log('Starting DB synchronization...');
         const { exec } = await import('child_process');
         await new Promise((resolve, reject) => {
-            exec('bun run sync_db.js', (error, stdout, stderr) => {
+            exec('npx run sync_db.js', (error, stdout, stderr) => {
                 if (error) {
                     console.error(`Sync error: ${error.message}`);
                     return resolve(); // Don't fail the whole scraper if sync fails
