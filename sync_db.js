@@ -4,6 +4,58 @@ import { db, users, orders } from "@1fi-finance/database";
 import { sql, eq, or, like } from "drizzle-orm";
 import fs from "fs";
 
+// ZeptoMail template keys
+const ZEPTOMAIL_TEMPLATES = {
+    loan_initiated: "2518b.1270916eb210eac8.k1.32f623e0-ebc2-11f0-b92c-d2cf08f4ca8c.19b985fd51e",
+    loan_confirmed: "2518b.1270916eb210eac8.k1.0de20900-ebc4-11f0-b92c-d2cf08f4ca8c.19b986bfd90"
+};
+
+/**
+ * Send email notification via ZeptoMail
+ * @param {string} status - The loan status (loan_initiated or loan_confirmed)
+ * @param {object} user - User object with name
+ * @param {object} order - Order object
+ */
+async function sendZeptoMailNotification(status, user, order) {
+    const templateKey = ZEPTOMAIL_TEMPLATES[status];
+    if (!templateKey) {
+        console.log(`[EMAIL] No template configured for status: ${status}`);
+        return;
+    }
+
+    const apiKey = "PHtE6r1eRe3rjGUu8hNT4qfuEM6mMYIs/+w0JVFG4Y5EDqMLS01UrdoolGS2/hd7VKRLFvfPzd9usL7J57jQLWm/ZjtNX2qyqK3sx/VYSPOZsbq6x00cs1gcckTdU4Hre9Vq1SfUudvfNA==";
+
+    try {
+        const response = await fetch("https://api.zeptomail.in/v1.1/email/template", {
+            method: "POST",
+            headers: {
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+                "Authorization": `Zoho-enczapikey ${apiKey}`
+            },
+            body: JSON.stringify({
+                template_key: templateKey,
+                from: { address: "noreply@1fi.in", name: "noreply" },
+                to: [{ email_address: { address: "tech@1fi.in", name: "1Fi" } }],
+                merge_info: {
+                    name: user.name || "Customer",
+                    order_number: order.orderNumber || "",
+                    phone: user.phone || ""
+                }
+            })
+        });
+
+        if (response.ok) {
+            console.log(`[EMAIL] Notification sent for ${status}: Order ${order.orderNumber}`);
+        } else {
+            const errorText = await response.text();
+            console.error(`[EMAIL] Failed to send notification: ${response.status} - ${errorText}`);
+        }
+    } catch (err) {
+        console.error(`[EMAIL] Error sending notification:`, err.message);
+    }
+}
+
 const normalizePhone = (phone) => {
     if (!phone) return null;
     let str = String(phone).trim();
@@ -116,6 +168,9 @@ async function main() {
                 .where(eq(orders.id, order.id));
 
             console.log(`[UPDATE] Order ${order.orderNumber}: ${order.status} -> ${targetStatus}`);
+
+            // Send email notification for loan status changes
+            await sendZeptoMailNotification(targetStatus, user, order);
 
         } catch (err) {
             console.error(`[ERROR] Processing ${phone}:`, err.message);
