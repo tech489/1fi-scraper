@@ -1,4 +1,107 @@
 import puppeteer from 'puppeteer';
+import "dotenv/config";
+import { db, users, orders } from "@1fi-finance/database";
+import { sql, eq } from "drizzle-orm";
+import fs from 'fs';
+
+// ==================== DB SYNC UTILITIES ====================
+
+const normalizePhone = (phone) => {
+    if (!phone) return null;
+    let str = String(phone).trim();
+    const digits = str.replace(/\D/g, "");
+    if (digits.length > 10) return digits.slice(-10);
+    if (digits.length === 10) return digits;
+    return null;
+};
+
+async function syncToDatabase(firstTableData, secondTableData) {
+    console.log("\n========== Starting DB Sync ==========");
+
+    const updates = new Map(); // Phone -> Status
+
+    // Table 1 (Array of Arrays) - loan_initiated
+    const firstRows = firstTableData.rows || [];
+    for (const row of firstRows) {
+        if (Array.isArray(row)) {
+            for (const cell of row) {
+                const ph = normalizePhone(cell);
+                if (ph) {
+                    updates.set(ph, "loan_initiated");
+                    break;
+                }
+            }
+        }
+    }
+
+    // Table 2 (Array of Objects) - loan_confirmed (Higher Priority)
+    const secondRows = secondTableData.rows || [];
+    for (const row of secondRows) {
+        if (typeof row === 'object') {
+            const values = Object.values(row);
+            for (const val of values) {
+                const ph = normalizePhone(val);
+                if (ph) {
+                    updates.set(ph, "loan_confirmed");
+                    break;
+                }
+            }
+        }
+    }
+
+    console.log(`Found ${updates.size} phone numbers to process.`);
+
+    for (const [phone, targetStatus] of updates.entries()) {
+        try {
+            // Find user by phone (handle optional +91)
+            const matchedUsers = await db.select()
+                .from(users)
+                .where(sql`${users.phone} LIKE ${'%' + phone}`)
+                .limit(1);
+
+            if (matchedUsers.length === 0) {
+                console.log(`[SKIP] No user found for phone: ${phone}`);
+                continue;
+            }
+
+            const user = matchedUsers[0];
+            console.log(`[MATCH] User: ${user.name || user.id} (${phone})`);
+
+            // Find their most recent order
+            const userOrders = await db.select()
+                .from(orders)
+                .where(eq(orders.userId, user.id))
+                .orderBy(sql`${orders.id} DESC`)
+                .limit(1);
+
+            if (userOrders.length === 0) {
+                console.log(`[SKIP] No orders found for user: ${user.id}`);
+                continue;
+            }
+
+            const order = userOrders[0];
+
+            if (order.status === targetStatus) {
+                console.log(`[OK] Order ${order.orderNumber} already ${targetStatus}`);
+                continue;
+            }
+
+            // Update Status
+            await db.update(orders)
+                .set({ status: targetStatus })
+                .where(eq(orders.id, order.id));
+
+            console.log(`[UPDATE] Order ${order.orderNumber}: ${order.status} -> ${targetStatus}`);
+
+        } catch (err) {
+            console.error(`[ERROR] Processing ${phone}:`, err.message);
+        }
+    }
+
+    console.log("========== Sync Complete ==========\n");
+}
+
+// ==================== MAIN SCRAPER ====================
 
 async function main() {
     console.log('Launching browser...');
@@ -77,7 +180,7 @@ async function main() {
                 document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null
             ).singleNodeValue;
 
-            if (!tableContainer) return { error: 'First table container not found' };
+            if (!tableContainer) return { error: 'First table container not found', rows: [] };
 
             // Get all text content and structure
             const rows = tableContainer.querySelectorAll('tr');
@@ -111,7 +214,7 @@ async function main() {
                 document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null
             ).singleNodeValue;
 
-            if (!table) return { error: 'Second table not found' };
+            if (!table) return { error: 'Second table not found', rows: [] };
 
             // Get headers
             const headers = [];
@@ -132,26 +235,13 @@ async function main() {
         });
         console.log('Second table data:', JSON.stringify(secondTableData, null, 2));
 
-        // Save scraped data to files
-        const fs = await import('fs');
+        // Save scraped data to files (for debugging/backup)
         fs.writeFileSync('first_table_data.json', JSON.stringify(firstTableData, null, 2));
         fs.writeFileSync('second_table_data.json', JSON.stringify(secondTableData, null, 2));
         console.log('Data saved to first_table_data.json and second_table_data.json');
 
-        // Run DB Sync
-        console.log('Starting DB synchronization...');
-        const { exec } = await import('child_process');
-        await new Promise((resolve, reject) => {
-            exec(`"${process.execPath}" sync_db.js`, (error, stdout, stderr) => {
-                if (error) {
-                    console.error(`Sync error: ${error.message}`);
-                    return resolve(); // Don't fail the whole scraper if sync fails
-                }
-                if (stderr) console.error(`Sync stderr: ${stderr}`);
-                console.log(`Sync stdout:\n${stdout}`);
-                resolve();
-            });
-        });
+        // Directly sync to database (no subprocess needed)
+        await syncToDatabase(firstTableData, secondTableData);
 
         console.log('Automation completed successfully!');
 
@@ -159,8 +249,7 @@ async function main() {
         console.error('Error during automation:', error.message);
     }
 
-    // Keep browser open for observation
-    // Uncomment the line below to close browser automatically
+    // Close browser
     await browser.close();
 }
 
