@@ -4,6 +4,18 @@ import { db, users, orders } from "@1fi-finance/database";
 import { sql, eq, or, like } from "drizzle-orm";
 import fs from "fs";
 
+// Status priority - higher number = more advanced in the loan process
+// Once a status is set to a higher priority, it should NEVER go back
+const STATUS_PRIORITY = {
+    "pending": 0,
+    "processing": 1,
+    "loan_initiated": 2,
+    "loan_confirmed": 3,  // Final loan approval - never downgrade from this
+    "completed": 4,
+    "cancelled": -1,
+    "loan_rejected": -1
+};
+
 const normalizePhone = (phone) => {
     if (!phone) return null;
     let str = String(phone).trim();
@@ -105,17 +117,30 @@ async function main() {
 
             const order = userOrders[0];
 
-            if (order.status === targetStatus) {
-                console.log(`[OK] Order ${order.orderNumber} already ${targetStatus}`);
+            const currentStatus = String(order.status || "").trim();
+            const newStatus = String(targetStatus || "").trim();
+
+            const currentPriority = STATUS_PRIORITY[currentStatus] ?? 0;
+            const newPriority = STATUS_PRIORITY[newStatus] ?? 0;
+
+            // Skip if status is the same
+            if (currentStatus === newStatus) {
+                console.log(`[SKIP] Order ${order.orderNumber} already has status: ${currentStatus}`);
                 continue;
             }
 
-            // Update Status
+            // Skip if we would be DOWNGRADING the status (e.g., loan_confirmed -> loan_initiated)
+            if (newPriority <= currentPriority) {
+                console.log(`[SKIP] Order ${order.orderNumber}: Won't downgrade from "${currentStatus}" (priority ${currentPriority}) to "${newStatus}" (priority ${newPriority})`);
+                continue;
+            }
+
+            // Update Status - only runs if status is genuinely advancing
             await db.update(orders)
-                .set({ status: targetStatus })
+                .set({ status: newStatus })
                 .where(eq(orders.id, order.id));
 
-            console.log(`[UPDATE] Order ${order.orderNumber}: ${order.status} -> ${targetStatus}`);
+            console.log(`[UPDATE] Order ${order.orderNumber}: "${currentStatus}" -> "${newStatus}"`);
 
         } catch (err) {
             console.error(`[ERROR] Processing ${phone}:`, err.message);
